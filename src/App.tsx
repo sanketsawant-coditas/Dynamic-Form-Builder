@@ -1,25 +1,12 @@
-import DynamicForm, { type Field } from "./components/form/DynamicForm";
-
+import FormPage from "./pages/FormPage"
 
 function App() {
-  const formConfig: Field[] = [
-    { label: "Name", type: "text", name: "name" },
-    { label: "Age", type: "number", name: "age" },
-    {
-      label: "Gender",
-      type: "select",
-      name: "gender",
-      options: ["Male", "Female", "Other"],
-    },
-    { label: "Subscribe", type: "checkbox", name: "subscribe" },
-  ];
-
   return (
-    <div>
-      <h2>Dynamic Form</h2>
-      <DynamicForm formConfig={formConfig} />
+    <div className="min-h-screen flex items-center justify-center
+bg-linear-to-br from-blue-300 via-purple-500 to-pink-500 p-6">
+      <FormPage />
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

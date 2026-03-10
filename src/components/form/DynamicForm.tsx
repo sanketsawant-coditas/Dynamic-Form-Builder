@@ -1,115 +1,172 @@
-import { useState, useCallback } from "react";
-import type { ChangeEvent, FormEvent } from "react";
-import { Input } from "../ui/input";
+import { useState, useCallback, useMemo } from "react"
+import type { FormEvent, ChangeEvent } from "react"
 
-export type FieldType = "text" | "number" | "checkbox" | "select";
+import { Input } from "../ui/input"
+import { Checkbox } from "../ui/checkbox"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select"
 
-export type Field = {
-  label: string;
-  type: FieldType;
-  name: string;
-  options?: string[];
-};
+import { Button } from "../ui/button"
+import { Label } from "../ui/label"
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert"
+
+import type { Field, FormData } from "./types"
 
 type DynamicFormProps = {
-  formConfig: Field[];
-};
+  formConfig: Field[]
+  onSubmit?: (data: FormData) => void
+}
 
-type FormData = Record<string, string | number | boolean>;
+function DynamicForm({ formConfig, onSubmit }: DynamicFormProps) {
 
-function DynamicForm({ formConfig }: DynamicFormProps) {
+  const initialState = useMemo(() => {
+    return formConfig.reduce((acc, field) => {
+      acc[field.name] = field.type === "checkbox" ? false : ""
+      return acc
+    }, {} as FormData)
+  }, [formConfig])
 
-  // Create initial state dynamically
-  const initialState = formConfig.reduce((acc, field) => {
-    acc[field.name] = field.type === "checkbox" ? false : "";
-    return acc;
-  }, {} as FormData);
+  const [formData, setFormData] = useState<FormData>(initialState)
+  const [submitted, setSubmitted] = useState(false)
 
-  const [formData, setFormData] = useState<FormData>(initialState);
+  const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type } = e.target
 
-  const handleChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        type === "number"
+          ? Number(value)
+          : type === "checkbox"
+          ? (e.target as HTMLInputElement).checked
+          : value,
+    }))
+  }, [])
 
-      const { name, value, type } = e.target;
+  const handleSelectChange = useCallback((name: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }, [])
 
-      setFormData((prev) => ({
-        ...prev,
-        [name]:
-          type === "checkbox"
-            ? (e.target as HTMLInputElement).checked
-            : value,
-      }));
-    },
-    []
-  );
+  const handleCheckboxChange = useCallback((name: string, checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: checked,
+    }))
+  }, [])
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+    e.preventDefault()
 
-    alert("Form Submitted Successfully!");
+    console.log("Form Data:", formData)
 
-    console.log("Form Data:", formData);
-  };
+    onSubmit?.(formData)
+
+    setSubmitted(true)
+  }
 
   const renderField = (field: Field) => {
-
-    const value = formData[field.name];
+    const value = formData[field.name]
 
     switch (field.type) {
-
       case "select":
         return (
-          <select
-            name={field.name}
+          <Select
             value={value as string}
-            onChange={handleChange}
+            onValueChange={(val) => handleSelectChange(field.name, val)}
           >
-            <option value="">Select</option>
-            {field.options?.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        );
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={`Select ${field.label}`} />
+            </SelectTrigger>
+
+            <SelectContent>
+              {field.options?.map((opt) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )
 
       case "checkbox":
         return (
-          <Input
-            type="checkbox"
-            name={field.name}
-            checked={value as boolean}
-            onChange={handleChange}
-          />
-        );
+          <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition">
+            <Checkbox
+              checked={value as boolean}
+              onCheckedChange={(checked) =>
+                handleCheckboxChange(field.name, checked as boolean)
+              }
+            />
+            <Label className="cursor-pointer text-sm font-medium">
+              {field.label}
+            </Label>
+          </div>
+        )
 
       default:
         return (
-          <input
+          <Input
             type={field.type}
             name={field.name}
             value={value as string | number}
-            onChange={handleChange}
+            onChange={handleInputChange}
+            placeholder={`Enter ${field.label}`}
+            required={field.required}
+            className="focus-visible:ring-2 focus-visible:ring-indigo-500"
           />
-        );
+        )
     }
-  };
+  }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6 w-full"
+    >
+
+      {submitted && (
+        <Alert className="border-green-500 bg-green-50 text-green-800">
+          <AlertTitle>Success 🎉</AlertTitle>
+          <AlertDescription>
+            Form submitted successfully!
+          </AlertDescription>
+        </Alert>
+      )}
 
       {formConfig.map((field) => (
-        <div key={field.name} style={{ marginBottom: "12px" }}>
-          <label htmlFor={field.name}>{field.label}</label>
-          <br />
+        <div key={field.name} className="space-y-2">
+
+          {field.type !== "checkbox" && (
+            <Label
+              htmlFor={field.name}
+              className="text-sm font-medium text-gray-700"
+            >
+              {field.label}
+            </Label>
+          )}
+
           {renderField(field)}
+
         </div>
       ))}
 
-      <button type="submit">Submit</button>
+      <Button
+        type="submit"
+        className="w-full bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium"
+      >
+        Submit
+      </Button>
 
     </form>
-  );
+  )
 }
 
-export default DynamicForm;
+export default DynamicForm
