@@ -1,8 +1,8 @@
-import { useForm } from "react-hook-form"
+import { useSearchParams } from "react-router-dom"        
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { getUsers, updateUser, createUser } from "@/services/userService"
 import DynamicForm from "@/components/form/DynamicForm"
-import type { Field, FormData, PageForm, User } from "@/components/form/types"
+import type { Field, FormData, User } from "@/components/form/types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card/card"
 import { Badge } from "@/components/ui/badge/badge"
@@ -14,66 +14,63 @@ const formConfig: Field[] = [
   { label: "Last Name",  type: "text", name: "lastname" },
   { label: "Email",      type: "text", name: "email" },
   { label: "Phone",      type: "text", name: "phone" },
-
 ]
 
 const FormPage = () => {
-  const { watch, setValue } = useForm<PageForm>({
-    defaultValues: { selectedUserId: "" }
-  })
-
-  const selectedUserId = watch("selectedUserId")
-
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedUserId = searchParams.get("userId") ?? ""
 
   const { data: users, isLoading, isError } = useQuery({
     queryKey: ["users"],
     queryFn: getUsers,
   })
 
-const { data: selectedUser } = useQuery({
-  queryKey: ["users", selectedUserId],
-  queryFn: getUsers,
-  enabled: !!selectedUserId,
-  select: (users: User[]) => users.find(u => String(u.id) === selectedUserId),
-})
+
+  const { data: selectedUser } = useQuery({
+    queryKey: ["users", selectedUserId],
+    queryFn: getUsers,
+    enabled: !!selectedUserId,  
+    select: (users: User[]) => users.find(u => String(u.id) === selectedUserId),
+  })
+
+  const { data: initialData } = useQuery({
+    queryKey: ["users", selectedUserId], 
+    queryFn: getUsers,
+    enabled: !!selectedUserId,
+    select: (users: User[]): FormData | undefined => {
+      const user = users.find(u => String(u.id) === selectedUserId)
+      if (!user) return undefined
+      return {
+        username:  user.username,
+        firstname: user.name.firstname,
+        lastname:  user.name.lastname,
+        email:     user.email,
+        phone:     user.phone,
+      }
+    },
+  })
 
 
-const { data: initialData } = useQuery({
-  queryKey: ["users", selectedUserId],
-  queryFn: getUsers,
-  enabled: !!selectedUserId,
-  select: (users: User[]): FormData | undefined => {
-    const user = users.find(u => String(u.id) === selectedUserId)
-    if (!user) return undefined
-    return {
-      username:  user.username,
-      firstname: user.name.firstname,
-      lastname:  user.name.lastname,
-      email:     user.email,
-      phone:     user.phone,
-      
-    }
-  },
-})
-
-const updateMutation = useMutation({
-  mutationFn: (data: FormData) => {
-    if (!selectedUser) throw new Error("No user selected")
-    return updateUser(selectedUser.id, data)  
-  },
-})
+  const updateMutation = useMutation({
+    mutationFn: (data: FormData) => {
+      if (!selectedUser) throw new Error("No user selected")
+      return updateUser(selectedUser.id, data)
+    },
+    onSuccess: (data) => console.log("Updated:", data),
+    onError:   (err)  => console.error("Update failed:", err),
+  })
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => createUser(data),
     onSuccess: (data) => {
       console.log("Created:", data)
-      setValue("selectedUserId", "")
+      setSearchParams({})  
     },
   })
 
   const handleSubmit = (data: FormData) => {
-    if (selectedUserId) updateMutation.mutate(data)
-    else                createMutation.mutate(data)
+    if (selectedUserId) updateMutation.mutate(data)  
+    else                createMutation.mutate(data)  
   }
 
   const mode      = selectedUserId ? "edit" : "create"
@@ -95,8 +92,8 @@ const updateMutation = useMutation({
 
           <Select
             value={selectedUserId}
-            onValueChange={(val) => setValue("selectedUserId", val)}
-          >
+            onValueChange={(val) => setSearchParams({ userId: val })}
+           >
             <SelectTrigger className="w-full mt-2">
               <SelectValue placeholder="Select a user to edit..." />
             </SelectTrigger>
@@ -115,14 +112,14 @@ const updateMutation = useMutation({
         <CardContent className="pt-6 space-y-6">
           {isSuccess && (
             <p className="text-green-600 text-sm text-center bg-green-50 p-2 rounded-lg">
-              {mode === "create" ? "User created!" : "User updated!"} 
+              {mode === "create" ? "User created!" : "User updated!"}
             </p>
           )}
 
           <DynamicForm
             formConfig={formConfig}
             onSubmit={handleSubmit}
-            initialData={initialData}  
+            initialData={initialData}
           />
         </CardContent>
       </Card>
